@@ -1,5 +1,5 @@
 {% macro cookiesMessage(i18n, cookiesPage) %}
-    <form action="" method="get">
+    <form method="get">
         <input type="hidden" name="okCookies" value="TRUE"/>
         <div class="toast toast-primary cookies">
             {{ cookiesPage.description | raw }} <button type="submit" class="btn">{{ i18n.trans('accept') }}</button>
@@ -8,23 +8,30 @@
     </form>
 {% endmacro %}
 
-<!--
-    Loads and displays a list of messages from the given types
--->
-{% macro message(log, types, style) %}
-    {% set messages = log.read(types) %}
-    {% if messages|length > 0 %}
-        <div class="toast toast-{{ style }}">
-            {% for msg in messages %}
-                {{ msg.message|raw }}
-                {% if not loop.last %}<br />{% endif %}
-            {% endfor %}
+{% macro footerMenu(fsc) %}
+    {% for menuKey, menuItem in fsc.menuComposer.getFooterMenu() %}
+        <div class="column col-md-3 col-sm-12">
+            {% if menuItem is iterable %}
+                <dl>
+                    <dt>{{ menuKey }}</dt>
+                    {% for childItem in menuItem %}
+                        <dd>
+                            {% set activeClass = (childItem.idpage == fsc.webPage.idpage) ? 'btn' : '' %}
+                            <a href="{{ childItem.url('public') | raw }}" class="{{ activeClass }}">{{ childItem.shorttitle }}</a>
+                        </dd>
+                    {% endfor %}
+                </dl>
+                <hr class="show-sm"/>
+            {% else %}
+                {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? '' : ' btn-link' %}
+                <a href="{{ menuItem.url('public') | raw }}" class="btn{{ activeClass }}">{{ menuItem.shorttitle }}</a>
+            {% endif %}
         </div>
-    {% endif %}
+    {% endfor %}
 {% endmacro %}
 
 {% macro loginModal(i18n, appSettings, fsc) %}
-    <script type="text/javascript">
+    <script>
         function showLoginModalTab(showName, hideName) {
             var showBtn = document.getElementById("btnLoginModal" + showName);
             showBtn.classList.add("active");
@@ -37,7 +44,6 @@
             return false;
         }
     </script>
-
     <div class="modal modal-sm" id="loginModal">
         <a href="#close" class="modal-overlay" aria-label="Close" onclick="return hideModal('loginModal');"></a>
         <div class="modal-container">
@@ -47,7 +53,7 @@
             </div>
             <div class="modal-body">
                 <div class="content">
-                    <ul class="tab tab-block">
+                    <ul class="tab tab-block mb-2">
                         <li class="tab-item">
                             <a href="#" id="btnLoginModalCustomers" class="active" onclick="return showLoginModalTab('Customers', 'Employees');">{{ i18n.trans('customers') }}</a>
                         </li>
@@ -56,29 +62,34 @@
                         </li>
                     </ul>
                     <div id="divLoginModalCustomers">
-                        <br/>
-                        {% if appSettings.get('webportal','fbappid','') != '' %}
+                        {% set facebook = appSettings.get('webportal','fbappid','') %}
+                        {% set google = appSettings.get('webportal','googleappid','') %}
+                        {% set twitter = appSettings.get('webportal','twitterappid','') %}
+                        {% set fsLogin = appSettings.get('webportal','allowlogincontacts','false') == 'true' %}
+                        {% if facebook %}
                             <a href="{{ constant('FS_ROUTE') }}/HybridLogin?prov=facebook&return={{ fsc.url() }}" class="btn btn-block">
-                                <i class="fa fa-facebook fa-fw" aria-hidden="true"></i> facebook
+                                <i class="fab fa-facebook fa-fw" aria-hidden="true"></i> facebook
                             </a>
                         {% endif %}
-                        {% if appSettings.get('webportal','googleappid','') != '' %}
+                        {% if google %}
                             <a href="{{ constant('FS_ROUTE') }}/HybridLogin?prov=google&return={{ fsc.url() }}" class="btn btn-block">
-                                <i class="fa fa-google fa-fw" aria-hidden="true"></i> google
+                                <i class="fab fa-google fa-fw" aria-hidden="true"></i> google
                             </a>
                         {% endif %}
-                        {% if appSettings.get('webportal','twitterappid','') != '' %}
+                        {% if twitter %}
                             <a href="{{ constant('FS_ROUTE') }}/HybridLogin?prov=twitter&return={{ fsc.url() }}" class="btn btn-block">
-                                <i class="fa fa-twitter fa-fw" aria-hidden="true"></i> twitter
+                                <i class="fab fa-twitter fa-fw" aria-hidden="true"></i> twitter
                             </a>
                         {% endif %}
-                        {% if appSettings.get('webportal','allowlogincontacts','false') == 'true' %}
-                            <br/>
+                        {% if fsLogin and (facebook or google or twitter) %}
+                            <p class="form-input-hint">{{ i18n.trans('login-with-social-or-email') }}</p>
+                        {% endif %}
+                        {% if fsLogin %}
                             <form action="{{ constant('FS_ROUTE') }}/HybridLogin?prov=fs" method="post" class="form">
                                 <div class="form-group">
                                     <div class="input-group">
                                         <span class="input-group-addon">
-                                            <i class="fa fa-envelope fa-fw" aria-hidden="true"></i>
+                                            <i class="fas fa-at fa-fw" aria-hidden="true"></i>
                                         </span>
                                         <input type="text" name="fsContact" id="fsContact" class="form-input" maxlength="50" placeholder=" {{ i18n.trans('email') }}" required="" autocomplete="off"/>
                                     </div>
@@ -86,29 +97,29 @@
                                 <div class="form-group">
                                     <div class="input-group">
                                         <span class="input-group-addon">
-                                            <i class="fa fa-key fa-fw" aria-hidden="true"></i>
+                                            <i class="fas fa-key fa-fw" aria-hidden="true"></i>
                                         </span>
                                         <input type="password" name="fsContactPass" id="fsContactPass" class="form-input" maxlength="50" placeholder=" {{ i18n.trans('password') }}" required="" autocomplete="off"/>
+                                        <button type="submit" class="btn btn-primary input-group-btn">
+                                            <i class="fas fa-sign-in-alt fa-fw"></i>
+                                        </button>
                                     </div>
+                                    <p class="form-input-hint">{{ i18n.trans('webportal-forgotten-password') }}</p>
                                 </div>
-                                <button type="submit" class="btn btn-block btn-primary">
-                                    {{ i18n.trans('login') }}
-                                </button>
                                 {% if appSettings.get('webportal','allownewregistrations','false') == 'true' %}
                                     <a class="btn btn-block btn-success" href="{{ constant('FS_ROUTE') }}/PortalRegisterMe">
-                                        {{ i18n.trans('register-me') }}
+                                        <i class="fas fa-edit fa-fw"></i> {{ i18n.trans('register-me') }}
                                     </a>
                                 {% endif %}
                             </form>
                         {% endif %}
                     </div>
                     <div id="divLoginModalEmployees" class="d-hide">
-                        <br/>
                         <form action="{{ constant('FS_ROUTE') }}/" method="post" class="form">
                             <div class="form-group">
                                 <div class="input-group">
                                     <span class="input-group-addon">
-                                        <i class="fa fa-user fa-fw" aria-hidden="true"></i>
+                                        <i class="fas fa-user fa-fw" aria-hidden="true"></i>
                                     </span>
                                     <input type="text" name="fsNick" class="form-input" maxlength="50" placeholder=" {{ i18n.trans('user') }}" required="" autocomplete="off"/>
                                 </div>
@@ -116,7 +127,7 @@
                             <div class="form-group">
                                 <div class="input-group">
                                     <span class="input-group-addon">
-                                        <i class="fa fa-key fa-fw" aria-hidden="true"></i>
+                                        <i class="fas fa-key fa-fw" aria-hidden="true"></i>
                                     </span>
                                     <input type="password" name="fsPassword" class="form-input" maxlength="50" placeholder=" {{ i18n.trans('password') }}" required="" autocomplete="off"/>
                                 </div>
@@ -138,17 +149,94 @@
         <div class="modal-container">
             <div class="modal-header">
                 <a href="#close" onclick="return hideModal('logoutModal');" class="btn btn-clear float-right" aria-label="Close"></a>
-                <div class="modal-title h5">{{ i18n.trans('logout') }}</div>
-                <i class="fa fa-user-circle fa-fw" aria-hidden="true"></i>
-                <span>{{ fsc.contact.email }}</span>
+                <div class="modal-title h5">
+                    <i class="fas fa-user-circle fa-fw" aria-hidden="true"></i> {{ fsc.contact.email }}
+                </div>
             </div>
             <div class="modal-body">
                 <div class="content">
+                    <a href="{{ constant('FS_ROUTE') }}/EditProfile" class="btn btn-block btn-success">
+                        <i class="fas fa-edit fa-fw" aria-hidden="true"></i> {{ i18n.trans('edit') }}
+                    </a>
+                    <div class="divider"></div>
                     <a href="{{ constant('FS_ROUTE') }}/?public_logout=TRUE" class="btn btn-block btn-error">
-                        <i class="fa fa-sign-out fa-fw" aria-hidden="true"></i> {{ i18n.trans('logout') }}
+                        <i class="fas fa-sign-out-alt fa-fw" aria-hidden="true"></i> {{ i18n.trans('logout') }}
                     </a>
                 </div>
             </div>
         </div>
+    </div>
+{% endmacro %}
+
+{% macro message(log, types, style) %}
+    {% set messages = log.read(types) %}
+    {% if messages|length > 0 %}
+        <div class="toast toast-{{ style }}">
+            {% for msg in messages %}
+                {{ msg.message|raw }}
+                {% if not loop.last %}<br />{% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro topMenu(fsc, i18n) %}
+    {% for menuKey, menuItem in fsc.menuComposer.getTopMenu() %}
+        {% if menuItem is iterable %}
+            {% set activeClass = (menuKey == fsc.webPage.menu) ? '' : ' btn-link' %}
+            <div class="dropdown">
+                <a href="#" class="btn{{ activeClass }} dropdown-toggle" tabindex="0">
+                    {{ menuKey }} <i class="fas fa-caret-down"></i>
+                </a>
+                <ul class="menu">
+                    {% for childItem in menuItem %}
+                        <li class="menu-item">
+                            {% set activeClass = (childItem.idpage == fsc.webPage.idpage) ? 'active' : '' %}
+                            <a href="{{ childItem.url('public') | raw }}" class="{{ activeClass }}">
+                                <i class="{{ childItem.icon }} fa-fw" aria-hidden="true"></i>
+                                {{ childItem.shorttitle }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? '' : ' btn-link' %}
+            <a class="btn{{ activeClass }}" href="{{ menuItem.url('public') | raw }}">
+                {{ menuItem.shorttitle }}
+            </a>
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+{% macro topMenuSmall(fsc, i18n) %}
+    <div class="dropdown show-xs">
+        <a href="#" class="btn btn-primary dropdown-toggle" tabindex="0">
+            <i class="fas fa-bars fa-fw" aria-hidden="true"></i> {{ i18n.trans('menu') }}
+        </a>
+        <ul class="menu">
+            {% for menuKey, menuItem in fsc.menuComposer.getTopMenu() %}
+                {% if menuItem is iterable %}
+                    <li class="divider" data-content="{{ menuKey }}">
+                    </li>
+                    {% for childItem in menuItem %}
+                        <li class="menu-item">
+                            {% set activeClass = (childItem.idpage == fsc.webPage.idpage) ? 'active' : '' %}
+                            <a href="{{ childItem.url('public') | raw }}" class="{{ activeClass }}">
+                                <i class="{{ childItem.icon }} fa-fw" aria-hidden="true"></i>
+                                {{ childItem.shorttitle }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? 'active' : '' %}
+                    <li class="menu-item">
+                        <a class="{{ activeClass }}" href="{{ menuItem.url('public') | raw }}">
+                            <i class="{{ menuItem.icon }} fa-fw" aria-hidden="true"></i> {{ menuItem.shorttitle }}
+                        </a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
     </div>
 {% endmacro %}

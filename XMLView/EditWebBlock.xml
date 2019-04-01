@@ -29,12 +29,12 @@
                 <widget type="select" fieldname="type">
                     <values title="body">body</values>
                     <values title="bodyContainer">bodyContainer</values>
-                    <values title="bodyCluster">bodyCluster</values>
                     <values title="meta">meta</values>
                     <values title="css">css</values>
                     <values title="javascript">javascript</values>
                     <values title="javascriptWithCookies">javascriptWithCookies</values>
                     <values title="footer">footer</values>
+                    <values title="txt">txt</values>
                 </widget>
             </column>
             <column name="idpage" title="page" numcolumns="4" order="120">
@@ -54,7 +54,7 @@
     </columns>
     <rows>
         <row type="actions">
-            <button type="action" label="preview" color="info" action="preview" icon="fa-eye" />
+            <button type="action" label="preview" color="info" action="preview" icon="fas fa-eye" />
         </row>
     </rows>
 </view>

@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
+<?php
+/**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -15,20 +15,18 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
- * @author Carlos García Gómez <carlos@facturascripts.com>  
--->
+ */
+namespace FacturaScripts\Plugins\webportal\Lib\WebPortal\Widget;
 
-<view>
-    <columns>
-        <column name="code" order="100">
-            <widget type="text" fieldname="idchat" onclick="EditChatSession" />
-        </column>
-        <column name="content" order="110">
-            <widget type="text" fieldname="content" />
-        </column>
-        <column name="date" display="right" order="120">
-            <widget type="date" fieldname="creationtime" />
-        </column>
-    </columns>
-</view>
+use FacturaScripts\Core\Lib\Widget\WidgetText as ParentClass;
+
+/**
+ * Description of WidgetText
+ *
+ * @author Carlos García Gómez
+ */
+class WidgetText extends ParentClass
+{
+
+    use VisualItemTrait;
+}

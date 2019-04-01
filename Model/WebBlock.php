@@ -22,7 +22,7 @@ use FacturaScripts\Core\Base\Utils;
 use FacturaScripts\Core\Model\Base;
 
 /**
- * Description of WebCluster
+ * Description of WebBlock
  *
  * @author Carlos García Gómez
  */
@@ -155,6 +155,6 @@ class WebBlock extends Base\ModelClass
             return '';
         }
 
-        return parent::url($type, 'ListWebPage?active=List');
+        return parent::url($type, 'ListWebPage?activetab=List');
     }
 }

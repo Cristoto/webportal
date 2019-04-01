@@ -4,45 +4,55 @@
     {% import _self as macros %}
 
     <div class="body-section">
-        <br/>
-        {% for section in fsc.sections %}
-            {% if section.fixed %}
-                {{ fsc.setCurrentSection(section.name) }}
-                {% include section.template %}
-            {% endif %}
-        {% endfor %}
+        {{ macros.navigationLinks(fsc.navigationLinks) }}
+
         <div class="container">
             <div class="columns">
-                <div class="column">
-                    {{ macros.sectionsButtons(fsc, i18n) }}
-                </div>
-                <div class="column col-10 col-md-12">
-                    {% for section in fsc.sections %}
-                        {% if section.fixed == false %}
-                            {% set divClass = (section.name == fsc.active) ? '' : 'd-hide' %}
-                            <div id="secDiv{{ section.name }}" class="section-div {{ divClass }}">
-                                {{ fsc.setCurrentSection(section.name) }}
-                                <form id="secForm{{ section.name }}" action="" method="post">
-                                    <input type="hidden" name="active" value="{{ section.name }}"/>
-                                    <input type="hidden" name="offset" value="0"/>
-                                    <div class="columns">
-                                        <div class="column">
-                                            {{ macros.sectionButtons(section) }}
-                                        </div>
-                                        <div class="column">
-                                            {{ macros.sectionSearch(section, i18n) }}
-                                        </div>
-                                        <div class="column col-4 col-sm-12">
-                                            {{ macros.sectionOrder(section) }}
-                                        </div>
-                                    </div>
-                                </form>
-                                <div class="custom-table-scroll">
-                                    {% include section.template %}
-                                </div>
-                                {{ macros.sectionPagination(section) }}
+                {% if fsc.getSectionGroups() | length > 1 %}
+                    <div class="column col-2 col-lg-12">
+                        {# -- Options button -- #}
+                        {% if fsc.user %}
+                            <div class="dropdown">
+                                <a href="#" class="btn btn-link dropdown-toggle">
+                                    <i class="fas fa-wrench fa-fw" aria-hidden="true"></i> {{ i18n.trans('options') }}
+                                </a>
+                                <ul class="menu">
+                                    {% for sectionName, section in fsc.sections %}
+                                        <li class="menu-item">
+                                            <a href="{{ asset('EditPageOption?code=' ~ sectionName) }}" target="_blank">
+                                                <i class="{{ section.icon }} fa-fw" aria-hidden="true"></i> {{ section.title }}
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
                             </div>
                         {% endif %}
+
+                        {# -- Section selector -- #}
+                        {{ macros.sectionsButtons(fsc, i18n) }}
+                    </div>
+                {% else %}
+                    <div class="column col-12 mb-2">
+                        {{ macros.sectionsButtonsTabs(fsc, i18n) }}
+                    </div>
+                {% endif %}
+                <div class="column">
+                    {# -- Section content -- #}
+                    {% for name, group in fsc.getSectionGroups() %}
+                        {% for sectionName, section in group %}
+                            {% set divClass = (sectionName == fsc.active) ? '' : 'd-hide' %}
+                            <div id="secDiv{{ sectionName }}" class="section-div {{ divClass }}">
+                                <div class="show-lg mb-2">
+                                    {% if name == '' %}
+                                        {{ section.title }}
+                                    {% else %}
+                                        {{ i18n.trans(name) }} / {{ section.title }}
+                                    {% endif %}
+                                </div>
+                                {{ fsc.setCurrentSection(sectionName) }}
+                                {% include section.template %}
+                            </div>
+                        {% endfor %}
                     {% endfor %}
                 </div>
             </div>
@@ -52,7 +62,6 @@
 
 {% block javascripts %}
     {{ parent() }}
-    <script src="{{ asset('node_modules/jquery/dist/jquery.min.js') }}"></script>
     <script type="text/javascript">
         function showSection(name) {
             $(".section-btn").removeClass("btn-primary");
@@ -66,117 +75,128 @@
             $("#secDiv" + name).removeClass("d-hide");
             return false;
         }
+        function showSectionDelete(formName) {
+            var value = confirm("{{ i18n.trans('confirm-delete') }} {{ i18n.trans('are-you-sure') }}");
+            if (value == true) {
+                $("#form" + formName + " :input[name=\"action\"]").val("delete");
+                $("#form" + formName).submit();
+            }
+
+            return false;
+        }
         function showSectionPage(name, offset) {
             $("#secForm" + name + " input[name=offset]").val(offset);
             $("#secForm" + name).submit();
             return false;
         }
+        $(document).ready(function () {
+            $(".clickableRow").mousedown(function (event) {
+                if (event.which === 1) {
+                    var href = $(this).attr("data-href");
+                    var target = $(this).attr("data-target");
+                    if (typeof href !== typeof undefined && href !== false) {
+                        if (typeof target !== typeof undefined && target === "_blank") {
+                            window.open($(this).attr("data-href"));
+                        } else {
+                            parent.document.location = $(this).attr("data-href");
+                        }
+                    }
+                }
+            });
+            $(".cancelClickable").mousedown(function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            $(".datepicker").datepicker({
+                dateFormat: "dd-mm-yy",
+                firstDay: 1,
+                beforeShow: function () {
+                    setTimeout(function () {
+                        $(".ui-datepicker").css("z-index", 99999999999999);
+                    }, 0);
+                }
+            });
+        });
     </script>
 {% endblock %}
 
+{% macro navigationLinks(links) %}
+    {% if links | length > 0 %}
+        <div class="container">
+            <div class="columns">
+                <div class="column col-2 col-xs-12">
+                </div>
+                <div class="column">
+                    <ul class="breadcrumb">
+                        {% for link in links %}
+                            <li class="breadcrumb-item">
+                                <a href="{{ link.url }}">{{ link.title }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}
+
 {% macro sectionsButtons(fsc, i18n) %}
-    <div class="hide-md">
-        {% for name, group in fsc.getSectionGroups() %}
+    {% import _self as macros %}
+
+    <div class="hide-lg">
+        {{ macros.sectionsButtonsButtons(fsc, i18n) }}
+    </div>
+    {# -- Smartphone section -- #}
+    <div class="show-lg mb-2">
+        {{ macros.sectionsButtonsTabs(fsc, i18n) }}
+    </div>
+{% endmacro %}
+
+{% macro sectionsButtonsButtons(fsc, i18n) %}
+    {% for name, group in fsc.getSectionGroups() %}
+        <ul class="menu">
             {% if name != '' %}
-                <br/>
-                <div class="divider text-center" data-content="{{ i18n.trans(name) }}"></div>
+                <li class="divider" data-content="{{ i18n.trans(name) }}">
+                </li>
             {% endif %}
-            {% for section in group %}
-                {% set btnClass = (section.name == fsc.active) ? 'btn btn-primary' : 'btn' %}
-                {% if section.count > 0 %}
-                    <button id="secBtn{{ section.name }}" class="section-btn {{ btnClass }} btn-block badge" data-badge="{{ section.count }}" onclick="return showSection('{{ section.name }}');">
-                        <i class="fa {{ section.icon }} fa-fw" aria-hidden="true"></i> {{ section.label }}
-                    </button>
-                {% else %}
-                    <button id="secBtn{{ section.name }}" class="section-btn {{ btnClass }} btn-block" onclick="return showSection('{{ section.name }}');">
-                        <i class="fa {{ section.icon }} fa-fw" aria-hidden="true"></i> {{ section.label }}
-                    </button>
-                {% endif %}
+            {% for sectionName, section in group %}
+                {% set tabClass = (sectionName == fsc.active) ? 'active' : '' %}
+                <li class="menu-item">
+                    {% if section.count > 0 %}
+                        <div class="menu-badge">
+                            <label class="label label-primary">{{ section.count }}</label>
+                        </div>
+                    {% endif %}
+                    <a href="#" id="secBtn{{ sectionName }}" class="section-tab {{ tabClass }}" onclick="return showSection('{{ sectionName }}');">
+                        <i class="{{ section.icon }} fa-fw" aria-hidden="true"></i>
+                        {{ section.title }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+        <br/>
+    {% endfor %}
+{% endmacro %}
+
+{% macro sectionsButtonsTabs(fsc, i18n) %}
+    <ul class="tab">
+        {% for name, group in fsc.getSectionGroups() %}
+            {% for sectionName, section in group %}
+                {% set tabClass = (sectionName == fsc.active) ? 'active' : '' %}
+                <li class="tab-item">
+                    {% if section.count > 0 %}
+                        <a href="#" id="secBtn{{ sectionName }}2" class="section-tab {{ tabClass }} badge" data-badge="{{ section.count }}" onclick="return showSection('{{ sectionName }}');">
+                            <i class="{{ section.icon }} fa-fw" aria-hidden="true"></i>
+                            <span class="hide-lg">{{ section.title }}</span>
+                        </a>
+                    {% else %}
+                        <a href="#" id="secBtn{{ sectionName }}2" class="section-tab {{ tabClass }}" onclick="return showSection('{{ sectionName }}');">
+                            <i class="{{ section.icon }} fa-fw" aria-hidden="true"></i>
+                            <span class="hide-lg">{{ section.title }}</span>
+                        </a>
+                    {% endif %}
+                </li>
             {% endfor %}
         {% endfor %}
-    </div>
-    <div class="show-md">
-        <ul class="tab tab-block">
-            {% for section in fsc.sections %}
-                {% set tabClass = (section.name == fsc.active) ? 'active' : '' %}
-                {% if section.fixed == true %}
-                {% elseif section.count > 0 %}
-                    <li class="tab-item">
-                        <a href="#" id="secBtn{{ section.name }}2" class="section-tab badge {{ tabClass }}" data-badge="{{ section.count }}" onclick="return showSection('{{ section.name }}');">
-                            <i class="fa {{ section.icon }} fa-fw" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                {% else %}
-                    <li class="tab-item">
-                        <a href="#" id="secBtn{{ section.name }}2" class="section-tab {{ tabClass }}" onclick="return showSection('{{ section.name }}');">
-                            <i class="fa {{ section.icon }} fa-fw" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                {% endif %}
-            {% endfor %}
-        </ul>
-    </div>
-{% endmacro %}
-
-{% macro sectionButtons(section) %}
-    {% if section.buttons | length > 0 %}
-        <div class="btn-group">
-            {% for button in section.buttons %}
-                <a href="{{ button.link }}" class="btn">
-                    {% if '' != button.icon %}
-                        <i class="fa {{ button.icon }} fa-fw" aria-hidden="true"></i>
-                    {% endif %}
-                    <span class="hide-sm">{{ button.label }}</span>
-                </a>
-            {% endfor %}
-        </div>
-    {% endif %}
-{% endmacro %}
-
-{% macro sectionOrder(section) %}
-    {% if section.orderOptions | length > 0 %}
-        <div class="input-group">
-            <span class="input-group-addon">
-                <i class="fa fa-sort fa-fw" aria-hidden="true"></i>
-            </span>
-            <select name="order" class="form-select" onchange="this.form.submit();">
-                {% for option in section.orderOptions %}
-                    {% if option.selected %}
-                        <option value="{{ option.field }} {{ option.order }}" selected="">{{ option.label }} {{ option.order }}</option>
-                    {% else %}
-                        <option value="{{ option.field }} {{ option.order }}">{{ option.label }} {{ option.order }}</option>
-                    {% endif %}
-                {% endfor %}
-            </select>
-        </div>
-    {% endif %}
-{% endmacro %}
-
-{% macro sectionPagination(section) %}
-    {% if section.pages | length > 0 %}
-        <ul class="pagination">
-            {% for page in section.pages %}
-                {% if page.current %}
-                    <li class="page-item active">
-                        <a href="#" onclick="return showSectionPage('{{ section.name }}', '{{ page.offset }}');">{{ page.num }}</a>
-                    </li>
-                {% else %}
-                    <li class="page-item">
-                        <a href="#" onclick="return showSectionPage('{{ section.name }}', '{{ page.offset }}');">{{ page.num }}</a>
-                    </li>
-                {% endif %}
-            {% endfor %}
-        </ul>
-    {% endif %}
-{% endmacro %}
-
-{% macro sectionSearch(section, i18n) %}
-    {% if section.searchOptions | length > 0 %}
-        <div class="input-group">
-            <input type="text" name="query" value="{{ section.query }}" class="form-input" placeholder="{{ i18n.trans('search') }}" autocomplete="off"/>
-            <button class="btn btn-primary input-group-btn">
-                <i class="fa fa-search fa-fw" aria-hidden="true"></i>
-            </button>
-        </div>
-    {% endif %}
+    </ul>
 {% endmacro %}

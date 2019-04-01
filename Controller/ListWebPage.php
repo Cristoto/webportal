@@ -18,7 +18,6 @@
  */
 namespace FacturaScripts\Plugins\webportal\Controller;
 
-use FacturaScripts\Core\App\AppSettings;
 use FacturaScripts\Core\Lib\ExtendedController;
 
 /**
@@ -39,7 +38,7 @@ class ListWebPage extends ExtendedController\ListController
         $pageData = parent::getPageData();
         $pageData['title'] = 'pages';
         $pageData['menu'] = 'web';
-        $pageData['icon'] = 'fa-globe';
+        $pageData['icon'] = 'fas fa-globe-americas';
 
         return $pageData;
     }
@@ -50,12 +49,13 @@ class ListWebPage extends ExtendedController\ListController
     protected function createViews()
     {
         /// Web pages
-        $this->addView('ListWebPage', 'WebPage', 'pages', 'fa-globe');
+        $this->addView('ListWebPage', 'WebPage', 'pages', 'fas fa-globe-americas');
         $this->addSearchFields('ListWebPage', ['title', 'description']);
         $this->addOrderBy('ListWebPage', ['permalink']);
         $this->addOrderBy('ListWebPage', ['title']);
+        $this->addOrderBy('ListWebPage', ['equivalentpage'], 'equivalence');
         $this->addOrderBy('ListWebPage', ['ordernum']);
-        $this->addOrderBy('ListWebPage', ['visitcount']);
+        $this->addOrderBy('ListWebPage', ['visitcount'], 'visit-counter');
         $this->addOrderBy('ListWebPage', ['lastmod'], 'last-update');
 
         $langValues = $this->codeModel->all('webpages', 'langcode', 'langcode');
@@ -67,16 +67,13 @@ class ListWebPage extends ExtendedController\ListController
         /// Web blocks
         $this->createViewWebBlock();
 
-        /// Web clusters
-        $this->createViewWebCluster();
-
         /// Searches
         $this->createViewWebSearch();
     }
 
     protected function createViewWebBlock()
     {
-        $this->addView('ListWebBlock', 'WebBlock', 'blocks', 'fa-code');
+        $this->addView('ListWebBlock', 'WebBlock', 'blocks', 'fas fa-code');
         $this->addSearchFields('ListWebBlock', ['content']);
         $this->addOrderBy('ListWebBlock', ['idblock'], 'code');
         $this->addOrderBy('ListWebBlock', ['idpage']);
@@ -89,47 +86,11 @@ class ListWebPage extends ExtendedController\ListController
         $this->addFilterSelect('ListWebBlock', 'idpage', 'page', 'idpage', $pages);
     }
 
-    protected function createViewWebCluster()
-    {
-        $this->addView('ListWebCluster', 'WebCluster', 'clusters', 'fa-newspaper-o');
-        $this->addSearchFields('ListWebCluster', ['title', 'description']);
-        $this->addOrderBy('ListWebCluster', ['title']);
-    }
-
     protected function createViewWebSearch()
     {
-        $this->addView('ListWebSearch', 'WebSearch', 'searches', 'fa-search');
+        $this->addView('ListWebSearch', 'WebSearch', 'searches', 'fas fa-search');
         $this->addSearchFields('ListWebSearch', ['query']);
         $this->addOrderBy('ListWebSearch', ['lastmod'], 'last-update', 2);
-        $this->addOrderBy('ListWebSearch', ['visitcount']);
-    }
-
-    /**
-     * Runs the controller actions
-     *
-     * @param string $action
-     */
-    protected function execAfterAction($action)
-    {
-        $this->setPortalAsHome();
-        parent::execAfterAction($action);
-    }
-
-    /**
-     * Sets PortalHome as default homepage.
-     */
-    private function setPortalAsHome()
-    {
-        $appSettings = new AppSettings();
-        if ($appSettings->get('default', 'homepage') !== 'PortalHome') {
-            $appSettings->set('default', 'homepage', 'PortalHome');
-            $appSettings->save();
-        }
-
-        /// set portal home page
-        if ($appSettings->get('webportal', 'homepage') === null) {
-            $appSettings->set('webportal', 'homepage', 1);
-            $appSettings->save();
-        }
+        $this->addOrderBy('ListWebSearch', ['visitcount'], 'visit-counter');
     }
 }

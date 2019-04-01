@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2018-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -22,6 +22,7 @@ use FacturaScripts\Core\App\AppSettings;
 use FacturaScripts\Core\Base\Controller;
 use FacturaScripts\Core\Base\ControllerPermissions;
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
+use FacturaScripts\Dinamic\Lib\AssetManager;
 use FacturaScripts\Dinamic\Model\Contacto;
 use FacturaScripts\Dinamic\Model\User;
 use FacturaScripts\Plugins\webportal\Model;
@@ -45,6 +46,12 @@ class PortalController extends Controller
      * Period to update contact activity and cookies = 1 hour.
      */
     const PUBLIC_UPDATE_ACTIVITY_PERIOD = 3600;
+    
+    /**
+     *
+     * @var string
+     */
+    public $canonicalUrl;
 
     /**
      * The associated contact.
@@ -59,6 +66,12 @@ class PortalController extends Controller
      * @var string
      */
     public $description;
+
+    /**
+     *
+     * @var MenuComposer
+     */
+    public $menuComposer;
 
     /**
      * The page composer.
@@ -81,36 +94,15 @@ class PortalController extends Controller
      */
     public $webPage;
 
-    /**
-     * Return cookies policy page.
-     *
-     * @return string
-     */
-    public function cookiesPage()
+    public function __construct(&$cache, &$i18n, &$miniLog, $className, $uri = '')
     {
-        foreach ($this->webPage->all([new DataBaseWhere('permalink', '/cookies')]) as $cookiePage) {
-            return $cookiePage;
-        }
-
-        return $this->webPage;
-    }
-
-    /**
-     * Return a list of pages clasified by lang code.
-     *
-     * @return array
-     */
-    public function getLanguageRoots()
-    {
-        $roots = [];
-        $where = [new DataBaseWhere('showonmenu', true)];
-        foreach ($this->getAuxMenu($where, false) as $wpage) {
-            if (!isset($roots[$wpage->langcode])) {
-                $roots[$wpage->langcode] = $wpage;
-            }
-        }
-
-        return $roots;
+        parent::__construct($cache, $i18n, $miniLog, $className, $uri);
+        AssetManager::add('css', FS_ROUTE . '/Plugins/webportal/node_modules/spectre.css/dist/spectre.min.css', 3);
+        AssetManager::add('css', FS_ROUTE . '/node_modules/@fortawesome/fontawesome-free/css/all.min.css', 3);
+        AssetManager::add('css', FS_ROUTE . '/Dinamic/Assets/CSS/webportal.css', 0);
+        $this->menuComposer = new MenuComposer();
+        $this->pageComposer = new PageComposer();
+        $this->webPage = $this->getWebPage();
     }
 
     /**
@@ -128,28 +120,6 @@ class PortalController extends Controller
     }
 
     /**
-     * Return public footer.
-     *
-     * @return array
-     */
-    public function getPublicFooter()
-    {
-        $where = [new DataBaseWhere('showonfooter', true)];
-        return $this->getAuxMenu($where);
-    }
-
-    /**
-     * Return public menu.
-     *
-     * @return array
-     */
-    public function getPublicMenu()
-    {
-        $where = [new DataBaseWhere('showonmenu', true)];
-        return $this->getAuxMenu($where);
-    }
-
-    /**
      * Runs the controller's private logic.
      *
      * @param Response              $response
@@ -164,6 +134,10 @@ class PortalController extends Controller
         $contact = new Contacto();
         if (!empty($this->user->email) && $contact->loadFromCode('', [new DataBaseWhere('email', $this->user->email)])) {
             $this->contact = $contact;
+            if (\time() - \strtotime($this->contact->lastactivity) > self::PUBLIC_UPDATE_ACTIVITY_PERIOD) {
+                $this->contact->lastactivity = date('d-m-Y H:i:s');
+                $this->contact->save();
+            }
         }
 
         $this->processWebPage();
@@ -229,31 +203,13 @@ class PortalController extends Controller
                 return true;
             }
 
-            $this->miniLog->alert($this->i18n->trans('login-cookie-fail'));
+            $this->miniLog->warning($this->i18n->trans('login-cookie-fail'));
             $this->response->headers->clearCookie('fsIdcontacto');
             return false;
         }
 
-        $this->miniLog->alert($this->i18n->trans('login-contact-not-found'));
+        $this->miniLog->debug($this->i18n->trans('login-contact-not-found'));
         return false;
-    }
-
-    /**
-     * Return auxiliar menu.
-     *
-     * @param array $where
-     * @param bool $filterLangcode
-     *
-     * @return Model\WebPage[]
-     */
-    private function getAuxMenu(array $where, bool $filterLangcode = true)
-    {
-        if ($this->webPage && $filterLangcode) {
-            $where[] = new DataBaseWhere('langcode', $this->webPage->langcode);
-        }
-
-        $webPageModel = new Model\WebPage();
-        return $webPageModel->all($where, ['ordernum' => 'ASC', 'shorttitle' => 'ASC']);
     }
 
     /**
@@ -303,19 +259,26 @@ class PortalController extends Controller
     protected function processWebPage()
     {
         $this->setTemplate('Master/PortalTemplate');
-        $this->pageComposer = new PageComposer();
-        $this->webPage = $this->getWebPage();
         $this->i18n->setLangCode($this->webPage->langcode);
-
         $this->title = $this->webPage->title;
         $this->description = $this->webPage->description;
+        $this->canonicalUrl = $this->webPage->url('public');
 
         if (null !== $this->webPage->idpage) {
             $ipAddress = $this->request->getClientIp() ?? '::1';
             $this->webPage->increaseVisitCount($ipAddress);
         }
 
+        $this->menuComposer->set($this->webPage);
         $this->pageComposer->set($this->webPage);
+
+        /// txt block?
+        foreach ($this->pageComposer->getBlocks('txt') as $block) {
+            $this->setTemplate(false);
+            $this->response->headers->set('Content-type', 'text/plain');
+            $this->response->setContent($block->content);
+            return;
+        }
     }
 
     /**

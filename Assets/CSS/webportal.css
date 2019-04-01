@@ -11,11 +11,11 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
-/* 
+/*
     Created on : 16-feb-2018, 18:09:52
     Author     : Carlos García Gómez
 */
@@ -33,6 +33,10 @@
     height: auto;
 }
 
+.font-weight-bold {
+    font-weight: bold;
+}
+
 .footer-section {
     padding: 20px 10px 50px 10px;
     background-color: #F8F9FA;
@@ -40,13 +44,14 @@
 }
 
 h1 {
-    margin-bottom: 10px;
-    word-break: break-all;
+    margin-bottom: 5px;
+    word-wrap: break-word;
 }
 
 h2, h3, h4, h5 {
+    margin-top: 35px;
     margin-bottom: 5px;
-    word-break: break-all;
+    word-wrap: break-word;
 }
 
 .navbar-top {
@@ -54,21 +59,23 @@ h2, h3, h4, h5 {
 }
 
 p {
-    word-break: break-all;
+    word-wrap: break-word;
 }
 
 .section-btn {
     margin-bottom: 5px;
 }
 
-.word-break {
-    word-break: break-all;
+.word-wrap {
+    word-wrap: break-word;
+}
+
+.ui-autocomplete {
+    z-index: 500;
 }
 
 @media screen and (max-width: 600px) {
-    .custom-table-scroll table {
-        display: block;
-        width: 100%;
+    .custom-scroll {
         overflow-x: auto;
         overflow-y: hidden;
         -webkit-overflow-scrolling: touch;

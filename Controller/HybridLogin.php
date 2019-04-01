@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2018-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -18,10 +18,11 @@
  */
 namespace FacturaScripts\Plugins\webportal\Controller;
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
 use FacturaScripts\Core\App\AppSettings;
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
+use FacturaScripts\Core\Base\Utils;
+use FacturaScripts\Dinamic\Lib\EmailTools;
+use FacturaScripts\Dinamic\Lib\IPFilter;
 use FacturaScripts\Dinamic\Model\Contacto;
 use FacturaScripts\Plugins\webportal\Lib\WebPortal\GeoLocation;
 use FacturaScripts\Plugins\webportal\Lib\WebPortal\PortalController;
@@ -29,6 +30,7 @@ use Hybridauth\Provider\Facebook;
 use Hybridauth\Provider\Google;
 use Hybridauth\Provider\Twitter;
 use Hybridauth\User\Profile;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Description of HybridLogin
@@ -39,24 +41,21 @@ class HybridLogin extends PortalController
 {
 
     /**
-     * Returns basic page attributes
      *
-     * @return array
+     * @var IPFilter
      */
-    public function getPageData()
-    {
-        $pageData = parent::getPageData();
-        $pageData['title'] = 'hybrid-login';
-        $pageData['menu'] = 'web';
-        $pageData['showonmenu'] = false;
+    protected $ipFilter;
 
-        return $pageData;
+    public function __construct(&$cache, &$i18n, &$miniLog, $className, $uri = '')
+    {
+        parent::__construct($cache, $i18n, $miniLog, $className, $uri);
+        $this->ipFilter = new IPFilter();
     }
 
     /**
      * Execute the public part of the controller.
      *
-     * @param \Symfony\Component\HttpFoundation\Response $response
+     * @param Response $response
      */
     public function publicCore(&$response)
     {
@@ -76,23 +75,23 @@ class HybridLogin extends PortalController
         $prov = $this->request->get('prov', '');
         switch ($prov) {
             case 'facebook':
-                $this->facebookLogin();
-                break;
-
-            case 'google':
-                $this->googleLogin();
-                break;
-
-            case 'twitter':
-                $this->twitterLogin();
-                break;
+                return $this->facebookLogin();
 
             case 'fs':
-                $this->contactLogin();
-                break;
+                return $this->contactLogin();
+
+            case 'google':
+                return $this->googleLogin();
+
+            case 'recover':
+                return $this->recoverAccount();
+
+            case 'twitter':
+                return $this->twitterLogin();
 
             default:
-                $this->miniLog->alert('no-login-provider');
+                $this->miniLog->warning('no-login-provider');
+                $this->ipFilter->setAttempt($this->request->getClientIp());
                 break;
         }
     }
@@ -100,10 +99,11 @@ class HybridLogin extends PortalController
     /**
      * Check contact data and update if needed.
      */
-    private function checkContact(Profile $userProfile)
+    protected function checkContact(Profile $userProfile)
     {
         if (!isset($userProfile->email) || !filter_var($userProfile->email, FILTER_VALIDATE_EMAIL)) {
-            $this->miniLog->alert($this->i18n->trans('invalid-email', ['%email%' => $userProfile->email]));
+            $this->miniLog->warning($this->i18n->trans('invalid-email', ['%email%' => $userProfile->email]));
+            $this->ipFilter->setAttempt($this->request->getClientIp());
             return;
         }
 
@@ -130,39 +130,52 @@ class HybridLogin extends PortalController
      *
      * @return bool Returns false if fails, or return true and set headers to redirect.
      */
-    private function contactLogin(): bool
+    protected function contactLogin(): bool
     {
         if (AppSettings::get('webportal', 'allowlogincontacts', 'false') === 'false') {
             return false;
         }
 
-        $email = $this->request->request->get('fsContact', '');
-        $passwd = $this->request->request->get('fsContactPass', '');
-        if ($email !== '') {
-            $contact = new Contacto();
-            $where = [new DataBaseWhere('email', $email)];
-            if ($contact->loadFromCode('', $where) && $contact->verifyPassword($passwd)) {
-                $this->setGeoIpData($contact);
-                $this->contact = $contact;
-                $this->updateCookies($this->contact, true);
-
-                $return = empty($_SESSION['hybridLoginReturn']) ? AppSettings::get('webportal', 'url') : $_SESSION['hybridLoginReturn'];
-                $this->response->headers->set('Refresh', '0; ' . $return);
-                return true;
-            }
-
-            $this->miniLog->alert($this->i18n->trans('invalid-email-or-password'));
+        $email = \strtolower($this->request->request->get('fsContact', ''));
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->miniLog->warning($this->i18n->trans('not-valid-email', ['%email%' => $email]));
+            $this->ipFilter->setAttempt($this->request->getClientIp());
             return false;
         }
 
-        $this->miniLog->alert($this->i18n->trans('invalid-email', ['%email%' => $email]));
+        $contact = new Contacto();
+        if (!$contact->loadFromCode('', [new DataBaseWhere('email', $email)])) {
+            $this->miniLog->warning($this->i18n->trans('email-not-registered'));
+            $this->ipFilter->setAttempt($this->request->getClientIp());
+            return false;
+        }
+
+        $passwd = $this->request->request->get('fsContactPass', '');
+        if ($contact->verifyPassword($passwd)) {
+            $this->setGeoIpData($contact);
+            $this->contact = $contact;
+            $this->updateCookies($this->contact, true);
+
+            $return = empty($_SESSION['hybridLoginReturn']) ? AppSettings::get('webportal', 'url') : $_SESSION['hybridLoginReturn'];
+            $this->response->headers->set('Refresh', '0; ' . $return);
+            return true;
+        }
+
+        $this->miniLog->warning($this->i18n->trans('login-password-fail'));
+        $this->ipFilter->setAttempt($this->request->getClientIp());
+
+        /// Send email to contact with link
+        $link = AppSettings::get('webportal', 'url') . '/HybridLogin?prov=recover&email='
+            . urlencode($email) . '&key=' . $this->getContactRecoverykey($contact);
+
+        $this->sendRecoveryMail($email, $link);
         return false;
     }
 
     /**
      * Manager Facebook login
      */
-    private function facebookLogin()
+    protected function facebookLogin()
     {
         $config = [
             'callback' => AppSettings::get('webportal', 'url') . '/HybridLogin?prov=facebook',
@@ -180,13 +193,30 @@ class HybridLogin extends PortalController
             $this->checkContact($userProfile);
         } catch (\Exception $exc) {
             $this->miniLog->error($exc->getMessage());
+            $this->ipFilter->setAttempt($this->request->getClientIp());
         }
+    }
+
+    /**
+     *
+     * @param Contacto $contact
+     *
+     * @return string
+     */
+    protected function getContactRecoverykey($contact)
+    {
+        if (empty($contact->logkey)) {
+            $contact->logkey = Utils::randomString(99);
+            $contact->save();
+        }
+
+        return urlencode(base64_encode($contact->logkey));
     }
 
     /**
      * Manage Google login
      */
-    private function googleLogin()
+    protected function googleLogin()
     {
         $config = [
             'callback' => AppSettings::get('webportal', 'url') . '/HybridLogin?prov=google',
@@ -204,16 +234,123 @@ class HybridLogin extends PortalController
             $this->checkContact($userProfile);
         } catch (\Exception $exc) {
             $this->miniLog->error($exc->getMessage());
+            $this->ipFilter->setAttempt($this->request->getClientIp());
         }
     }
 
     /**
+     * Try to recover the contact account
+     *
+     * @return bool
+     */
+    protected function recoverAccount(): bool
+    {
+        /// Checks email
+        $email = $this->request->get('email', '');
+        $contact = new Contacto();
+        if (!$contact->loadFromCode('', [new DataBaseWhere('email', $email)])) {
+            $this->ipFilter->setAttempt($this->request->getClientIp());
+            return false;
+        }
+
+        $baseUrl = AppSettings::get('webportal', 'url');
+
+        /// no key? then send email
+        if (empty($this->request->get('key', ''))) {
+            /// Send email to contact with link
+            $link = $baseUrl . '/HybridLogin?prov=recover&email=' . urlencode($email)
+                . '&key=' . $this->getContactRecoverykey($contact);
+
+            return $this->sendRecoveryMail($email, $link);
+        }
+
+        /// key is ok?
+        $recoveryKey = urldecode(base64_decode($this->request->get('key', '')));
+        if ($contact->verifyLogkey($recoveryKey)) {
+            $this->setGeoIpData($contact);
+            if ($contact->save()) {
+                $this->contact = $contact;
+                $this->updateCookies($contact, true);
+                return $this->sendEditProfile($baseUrl);
+            }
+
+            $this->miniLog->alert($this->i18n->trans('record-save-error'));
+            return false;
+        }
+
+        $this->sendTimeOut($baseUrl);
+        return false;
+    }
+
+    /**
+     *
+     * @param string $baseUrl
+     *
+     * @return bool
+     */
+    protected function sendEditProfile($baseUrl)
+    {
+        $this->miniLog->notice(
+            $this->i18n->trans(
+                'recovered-access-go-to-account', ['%link%' => $baseUrl . '/EditProfile']
+            )
+        );
+        return true;
+    }
+
+    /**
+     *
+     * @param string $email
+     * @param string $link
+     *
+     * @return bool
+     */
+    protected function sendRecoveryMail($email, $link)
+    {
+        $emailTools = new EmailTools();
+
+        $mail = $emailTools->newMail();
+        $mail->Subject = $this->i18n->trans('recover-your-account');
+        $mail->addAddress($email);
+
+        $params = [
+            'body' => $this->i18n->trans('recover-your-account-body', ['%link%' => $link]),
+            'company' => AppSettings::get('webportal', 'title'),
+            'footer' => AppSettings::get('webportal', 'copyright'),
+            'title' => $mail->Subject,
+        ];
+        $mail->msgHTML($emailTools->getTemplateHtml($params));
+        if ($emailTools->send($mail)) {
+            $this->miniLog->notice($this->i18n->trans('recover-email-send-ok'));
+            return true;
+        }
+
+        $this->miniLog->critical($this->i18n->trans('send-mail-error'));
+        return false;
+    }
+
+    /**
+     *
+     * @param string $baseUrl
+     */
+    protected function sendTimeOut($baseUrl)
+    {
+        $this->miniLog->alert($this->i18n->trans('recovery-timed-out', ['%link%' => $baseUrl . '/EditProfile']));
+        $this->ipFilter->setAttempt($this->request->getClientIp());
+    }
+
+    /**
      * Set geoIP details to contact.
-     * 
+     *
      * @param Contacto $contact
      */
     private function setGeoIpData(&$contact)
     {
+        /// we don't need update contact location if we already know
+        if (!empty($contact->ciudad)) {
+            return;
+        }
+
         $ipAddress = $this->request->getClientIp() ?? '::1';
         $geoLocation = new GeoLocation();
         $geoLocation->setGeoIpData($contact, $ipAddress);
@@ -222,7 +359,7 @@ class HybridLogin extends PortalController
     /**
      * Manage Twitter login
      */
-    private function twitterLogin()
+    protected function twitterLogin()
     {
         $config = [
             'callback' => AppSettings::get('webportal', 'url') . '/HybridLogin?prov=twitter',
@@ -241,6 +378,7 @@ class HybridLogin extends PortalController
             $this->checkContact($userProfile);
         } catch (\Exception $exc) {
             $this->miniLog->error($exc->getMessage());
+            $this->ipFilter->setAttempt($this->request->getClientIp());
         }
     }
 }

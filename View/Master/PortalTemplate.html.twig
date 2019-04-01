@@ -7,12 +7,15 @@
         {% set webUrl = appSettings.get('webportal','url','') %}
         {% block meta %}
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-            <title>{{ fsc.title }}</title>
-            <meta name="description" content="{{ fsc.description }}" />
+            <title>{{ fsc.title | raw }}</title>
+            <meta name="description" content="{{ fsc.description | raw }}" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <meta name="generator" content="FacturaScripts" />
-            {% if fsc.webPage.noindex %}<meta name="robots" content="noindex" />{% endif %}
-            <link rel="canonical" href="{{ webUrl }}{{ fsc.webPage.url('public') }}" />
+            {% if fsc.webPage.noindex %}
+                <meta name="robots" content="noindex" />
+            {% else %}
+                <link rel="canonical" href="{{ webUrl }}{{ fsc.canonicalUrl }}" />
+            {% endif %}
             {% for block in fsc.pageComposer.getBlocks('meta') %}
                 {{ block.content() | raw }}
             {% endfor %}
@@ -22,82 +25,65 @@
             <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('Dinamic/Assets/Images/apple-icon-180x180.png') }}" />
         {% endblock %}
         {% block css %}
-            <style>{{ assetCombine(['Plugins/webportal/node_modules/spectre.css/dist/spectre.min.css','node_modules/font-awesome/css/font-awesome.min.css','Dinamic/Assets/CSS/webportal.css'])|raw }}</style>
+            {# Adds custom CSS assets #}
+            <style>{{ assetManager.combine('css') | raw }}</style>
+            {# Adds custom CSS blocks #}
             {% for block in fsc.pageComposer.getBlocks('css') %}
                 {{ block.content() | raw }}
             {% endfor %}
         {% endblock %}
-        {{ debugBarRender.renderHead()|raw }}
+        {{ debugBarRender.renderHead() | raw }}
     </head>
     <body>
+        {% import 'Macro/PortalTemplate.html.twig' as Macros %}
         {% block navbar %}
-            <header class="navbar navbar-top">
-                <section class="navbar-section hide-xs">
-                    {% for menuItem in fsc.getPublicMenu() %}
-                        {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? '' : ' btn-link' %}
-                        <a class="btn{{ activeClass }}" href="{{ menuItem.url('public') | raw }}">
-                            {{ menuItem.shorttitle }}
-                        </a>
-                    {% endfor %}
-                </section>
-                <section class="navbar-center">
-                    <div class="dropdown show-xs">
-                        <a href="#" class="btn btn-primary dropdown-toggle" tabindex="0">
-                            <i class="fa fa-bars fa-fw" aria-hidden="true"></i> {{ i18n.trans('menu') }}
-                        </a>
-                        <ul class="menu">
-                            {% for menuItem in fsc.getPublicMenu() %}
-                                {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? 'active' : '' %}
-                                <li class="menu-item">
-                                    <a class="{{ activeClass }}" href="{{ menuItem.url('public') | raw }}">
-                                        <i class="fa {{ menuItem.icon }} fa-fw" aria-hidden="true"></i> {{ menuItem.shorttitle }}
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+            <div class="navbar navbar-top">
+                <div class="navbar-section hide-xs">
+                    {{ Macros.TopMenu(fsc, i18n) }}
+                </div>
+                <div class="navbar-center">
+                    {{ Macros.TopMenuSmall(fsc, i18n) }}
                     <img src="{{ asset('Dinamic/Assets/Images/logo.png') }}" width="30" height="30" alt="{{ webTitle }}" class="hide-xs" />
-                </section>
-                <section class="navbar-section">
+                </div>
+                <div class="navbar-section">
                     <a class="btn" href="{{ constant('FS_ROUTE') }}/WebSearch">
-                        <i class="fa fa-search fa-fw" aria-hidden="true"></i>
+                        <i class="fas fa-search fa-fw" aria-hidden="true"></i>
                         <span class="hide-md">{{ i18n.trans('search') }}</span>
                     </a>
                     &nbsp;
                     {% if fsc.user %}
                         <div class="btn-group">
                             <a class="btn" href="{{ constant('FS_ROUTE') }}/{{ fsc.webPage.url('edit') }}">
-                                <i class="fa fa-edit fa-fw" aria-hidden="true"></i>
+                                <i class="fas fa-edit fa-fw" aria-hidden="true"></i>
                             </a>
                             <a class="btn btn-success" href="{{ constant('FS_ROUTE') }}/ListWebPage">
-                                <i class="fa fa-sign-in fa-fw" aria-hidden="true"></i>
+                                <i class="fas fa-sign-in-alt fa-fw" aria-hidden="true"></i>
                             </a>
                         </div>
                     {% elseif fsc.contact %}
                         <a class="btn btn-success" href="#" onclick="return showModal('logoutModal');">
-                            <i class="fa fa-user-circle fa-fw" aria-hidden="true"></i>
+                            <i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>
                             <span>{{ fsc.contact.nombre }}</span>
                         </a>
                     {% else %}
                         <a class="btn btn-primary" href="#" onclick="return showModal('loginModal');">
-                            <i class="fa fa-user-circle fa-fw" aria-hidden="true"></i>
+                            <i class="fas fa-user-circle fa-fw" aria-hidden="true"></i>
                             <span class="hide-md">{{ i18n.trans('login') }}</span>
                         </a>
                     {% endif %}
-                </section>
-            </header>
+                </div>
+            </div>
             <div class="divider text-center" data-content="{{ webTitle }}"></div>
         {% endblock %}
-        {% import 'Macro/PortalTemplate.html.twig' as Macros %}
         {% block messages %}
             <div class="container">
                 <div class="columns">
-                    <div class="column col-12">
+                    <div class="column col-12 mb-2">
                         {{ Macros.message(log, ['error', 'critical', 'alert', 'emergency'], 'error') }}
                         {{ Macros.message(log, ['warning'], 'warning') }}
                         {{ Macros.message(log, ['notice'], 'success') }}
                         {{ Macros.message(log, ['info'], 'primary') }}
-                        {% if fsc.showCookiesPolicy %}{{ Macros.cookiesMessage(i18n, fsc.cookiesPage()) }}{% endif %}
+                        {% if fsc.showCookiesPolicy %}{{ Macros.cookiesMessage(i18n, fsc.menuComposer.cookiesPage()) }}{% endif %}
                     </div>
                 </div>
             </div>
@@ -125,13 +111,23 @@
                             {% for block in fsc.pageComposer.getBlocks('footer') %}
                                 {{ block.content() | raw }}
                             {% endfor %}
-                            {% for key, menuItem in fsc.getPublicFooter() %}
-                                {% set activeClass = (menuItem.idpage == fsc.webPage.idpage) ? '' : ' btn-link' %}
-                                <a href="{{ menuItem.url('public') | raw }}" class="btn{{ activeClass }}">{{ menuItem.shorttitle }}</a>
-                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="columns">
+                        {{ Macros.footerMenu(fsc) }}
+                    </div>
+                    <div class="columns">
+                        <div class="column">
+                            <br/>
+                            <br/>
+                        </div>
+                    </div>
+                    <div class="columns">
+                        <div class="column">
+                            {{ webCopyright }}
                         </div>
                         <div class="column text-right">
-                            {% for key, menuItem in fsc.getLanguageRoots() %}
+                            {% for menuItem in fsc.menuComposer.getLanguageRoots() %}
                                 {% if menuItem.langcode == fsc.webPage.langcode %}
                                     <b>{{ menuItem.langcode }}</b>
                                 {% else %}
@@ -141,13 +137,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="text-center">
-                    {{ webCopyright }}
-                </div>
             </div>
         {% endblock %}
         {% block javascripts %}
-            <script type="text/javascript">
+            <script>
                 function showModal(idModal) {
                     var element = document.getElementById(idModal);
                     element.classList.add("active");
@@ -159,6 +152,11 @@
                     return false;
                 }
             </script>
+            {# Adds custom JS assets #}
+            {% for js in assetManager.get('js') %}
+                <script src="{{ js }}"></script>
+            {% endfor %}
+            {# Adds custom JS blocks #}
             {% for block in fsc.pageComposer.getBlocks('javascript') %}
                 {{ block.content() | raw }}
             {% endfor %}

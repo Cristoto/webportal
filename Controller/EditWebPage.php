@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -18,17 +18,26 @@
  */
 namespace FacturaScripts\Plugins\webportal\Controller;
 
-use FacturaScripts\Core\App\AppRouter;
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
 use FacturaScripts\Core\Lib\ExtendedController;
+use FacturaScripts\Plugins\webportal\Lib\WebPortal\UpdateRoutes;
 
 /**
  * Description of EditWebPage.
  *
  * @author Carlos García Gómez
  */
-class EditWebPage extends ExtendedController\PanelController
+class EditWebPage extends ExtendedController\EditController
 {
+
+    /**
+     * 
+     * @return string
+     */
+    public function getModelClassName()
+    {
+        return 'WebPage';
+    }
 
     /**
      * Returns basic page attributes.
@@ -41,7 +50,7 @@ class EditWebPage extends ExtendedController\PanelController
         $pageData['title'] = 'page';
         $pageData['menu'] = 'web';
         $pageData['showonmenu'] = false;
-        $pageData['icon'] = 'fa-globe';
+        $pageData['icon'] = 'fas fa-globe';
 
         return $pageData;
     }
@@ -51,28 +60,32 @@ class EditWebPage extends ExtendedController\PanelController
      */
     protected function createViews()
     {
-        $this->addEditView('EditWebPage', 'WebPage', 'page', 'fa-globe');
-        $this->addListView('ListWebBlock', 'WebBlock', 'blocks', 'fa-code');
+        parent::createViews();
+        $this->addEditListView('EditWebBlock', 'WebBlock', 'blocks', 'fas fa-code');
     }
 
     /**
-     * Load data view procedure.
+     * Run the controller after actions.
      *
-     * @param string $keyView
-     * @param ExtendedController\BaseView $view
+     * @param string $action
      */
-    protected function loadData($keyView, $view)
+    protected function execAfterAction($action)
     {
-        switch ($keyView) {
-            case 'EditWebPage':
-                $code = $this->request->get('code');
-                $view->loadData($code);
+        switch ($action) {
+            case 'preview':
+                $model = $this->views['EditWebPage']->model;
+                if ($model !== false) {
+                    $this->response->headers->set('Refresh', '0; ' . $model->url('public'));
+                    UpdateRoutes::setRoutes();
+                }
+                if ($this->user->homepage !== 'PortalHome') {
+                    $this->user->homepage = 'PortalHome';
+                    $this->user->save();
+                }
                 break;
 
-            case 'ListWebBlock':
-                $idpage = $this->getViewModelValue('EditWebPage', 'idpage');
-                $view->loadData(false, [new DataBaseWhere('idpage', $idpage)], ['ordernum' => 'ASC']);
-                break;
+            default:
+                parent::execAfterAction($action);
         }
     }
 
@@ -89,56 +102,31 @@ class EditWebPage extends ExtendedController\PanelController
             return false;
         }
 
-        if ($action === 'save' || $action === 'delete') {
-            $this->setRoutes();
+        $actions = ['edit', 'delete', 'insert'];
+        if (in_array($action, $actions)) {
+            UpdateRoutes::setRoutes();
         }
 
         return true;
     }
 
     /**
-     * Run the controller after actions.
+     * Load data view procedure.
      *
-     * @param string $action
+     * @param string $keyView
+     * @param ExtendedController\BaseView $view
      */
-    protected function execAfterAction($action)
+    protected function loadData($keyView, $view)
     {
-        switch ($action) {
-            case 'preview':
-                $model = $this->views['EditWebPage']->model;
-                if ($model !== false) {
-                    $this->response->headers->set('Refresh', '0; ' . $model->url('public'));
-                    $this->setRoutes();
-                }
-                if ($this->user->homepage !== 'PortalHome') {
-                    $this->user->homepage = 'PortalHome';
-                    $this->user->save();
-                }
+        switch ($keyView) {
+            case 'EditWebBlock':
+                $idpage = $this->getViewModelValue('EditWebPage', 'idpage');
+                $where = [new DataBaseWhere('idpage', $idpage)];
+                $view->loadData('', $where, ['ordernum' => 'ASC']);
                 break;
 
             default:
-                parent::execAfterAction($action);
-        }
-    }
-
-    /**
-     * Set routes from model WebPage.
-     */
-    private function setRoutes()
-    {
-        $appRouter = new AppRouter();
-        $appRouter->clear();
-
-        $langcodes = [substr(FS_LANG, 0, 2)];
-        $webPages = $this->views['EditWebPage']->model->all([], [], 0, 0);
-        foreach ($webPages as $webpage) {
-            $customController = empty($webpage->customcontroller) ? 'PortalHome' : $webpage->customcontroller;
-            $appRouter->setRoute($webpage->permalink, $customController, $webpage->idpage);
-
-            if (!in_array($webpage->langcode, $langcodes)) {
-                $appRouter->setRoute('/' . $webpage->langcode . '/', $customController);
-                $langcodes[] = $webpage->langcode;
-            }
+                parent::loadData($keyView, $view);
         }
     }
 }

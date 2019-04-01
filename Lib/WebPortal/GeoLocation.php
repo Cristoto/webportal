@@ -33,28 +33,68 @@ class GeoLocation
 {
 
     /**
-     * Set geoIP details to contact.
+     * Determines if an ip4 are within a range
+     *
+     * @param string $ipAddress
+     * @param string $start
+     * @param string $end
+     * @return bool
+     */
+    private function ip4InRange($ipAddress, $start, $end): bool
+    {
+        return ( ip2long($start) <= ip2long($ipAddress) && ip2long($end) >= ip2long($ipAddress) );
+    }
+
+    /**
+     * Determines if an ip4 are within a private network
      * 
+     * @param string $ipAddress
+     * @return bool
+     */
+    private function excludedIp($ipAddress): bool
+    {
+        return in_array($ipAddress, ['127.0.0.1', '::1'], true) || $this->ip4InRange($ipAddress, '192.168.0.0', '192.168.255.255') // Clase C
+            || $this->ip4InRange($ipAddress, '172.16.0.0', '172.31.255.255') // Clase B
+            || $this->ip4InRange($ipAddress, '169.254.0.0', '169.254.255.255') // Clase B simple
+            || $this->ip4InRange($ipAddress, '10.0.0.0', '10.255.255.255'); // Clase A
+    }
+
+    /**
+     * Set geoIP details to contact.
+     *
      * @param Contacto $contact
      * @param string   $ipAddress
      */
     public function setGeoIpData(&$contact, $ipAddress)
     {
-        $excludedIp = ['192.168.0.1', '::1'];
-        if ($contact !== null && !\in_array($ipAddress, $excludedIp, true)) {
-            $data = $this->getGeoIpData($ipAddress);
-            if (empty($data)) {
-                return;
-            }
-
-            $this->setContactField($contact, 'ciudad', $data['cityName']);
-            $this->setContactField($contact, 'provincia', $data['regionName']);
-            $contact->codpais = $this->getCodpais($data['countryCode'], $data['countryName']);
+        if ($contact === null || $this->excludedIp($ipAddress)) {
+            return;
         }
+
+        $data = $this->getGeoIpData($ipAddress);
+        if (empty($data)) {
+            return;
+        }
+
+        $this->setContactField($contact, 'ciudad', $data['cityName']);
+        $this->setContactField($contact, 'provincia', $data['regionName']);
+        $contact->codpais = $this->getCodpais($data['countryCode'], $data['countryName']);
     }
 
-    private function getCodpais(string $codiso, string $name): string
+    /**
+     * Returns country code.
+     *
+     * @param string $codiso
+     * @param string $name
+     *
+     * @return string|null
+     */
+    private function getCodpais(string $codiso, string $name)
     {
+        if (empty($codiso) || '-' === $codiso) {
+            return null;
+        }
+
         $country = new Pais();
         if (!$country->loadFromCode('', [new DataBaseWhere('codiso', $codiso)])) {
             $country->codiso = $codiso;
@@ -68,7 +108,7 @@ class GeoLocation
 
     /**
      * Returns location from IP address.
-     * 
+     *
      * @param string $ip
      *
      * @return array
@@ -91,7 +131,7 @@ class GeoLocation
 
     /**
      * Set string to field, truncated to max field length.
-     * 
+     *
      * @param Contact $contact
      * @param string $field
      * @param string $string

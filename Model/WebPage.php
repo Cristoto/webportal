@@ -50,18 +50,18 @@ class WebPage extends WebPageClass
     public $description;
 
     /**
-     * Icon to use in cluster.
+     * Used to identify equivalent pages in different langagues.
+     *
+     * @var string
+     */
+    public $equivalentpage;
+
+    /**
+     * Icon to use in page.
      *
      * @var string
      */
     public $icon;
-
-    /**
-     * Cluster id.
-     *
-     * @var int
-     */
-    public $idcluster;
 
     /**
      * Primary key.
@@ -69,6 +69,12 @@ class WebPage extends WebPageClass
      * @var int
      */
     public $idpage;
+
+    /**
+     *
+     * @var string
+     */
+    public $menu;
 
     /**
      * Hide to search engines.
@@ -118,7 +124,8 @@ class WebPage extends WebPageClass
     public function clear()
     {
         parent::clear();
-        $this->icon = 'fa-file-o';
+        $this->icon = 'fas fa-file';
+        $this->menu = '';
         $this->noindex = false;
         $this->showonmenu = true;
         $this->showonfooter = true;
@@ -165,7 +172,7 @@ class WebPage extends WebPageClass
         $this->description = mb_substr(Utils::noHtml($this->description), 0, 300);
         $this->permalink = Utils::noHtml($this->permalink);
         $this->title = Utils::noHtml($this->title);
-        $this->shorttitle = Utils::noHtml($this->shorttitle);
+        $this->shorttitle = empty($this->shorttitle) ? $this->title : Utils::noHtml($this->shorttitle);
 
         $homepage = $this->get(AppSettings::get('webportal', 'homepage'));
         if ((false !== $homepage) && $this->langcode !== $homepage->langcode && substr($this->permalink, 0, 4) !== '/' . $this->langcode . '/') {

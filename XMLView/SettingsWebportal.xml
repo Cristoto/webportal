@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -18,10 +18,9 @@
  *
  * @author Carlos García Gómez <carlos@facturascripts.com>
 -->
-
 <view>
     <columns>
-        <group name="default" numcolumns="12">
+        <group name="default" icon="fas fa-globe-americas" numcolumns="12">
             <column name="name" display="none" order="0">
                 <widget type="text" fieldname="name" readonly="true" required="true" />
             </column>
@@ -40,12 +39,12 @@
                 <widget type="textarea" fieldname="copyright"/>
             </column>
         </group>
-        <group name="ipinfodb-credentials" title="ipinfodb-credentials" icon="fa-map-marker" numcolumns="12">
+        <group name="ipinfodb-credentials" title="ipinfodb-credentials" icon="fas fa-map-marker" numcolumns="12">
             <column name="api-key" numcolumns="12" order="100">
                 <widget type="text" fieldname="ipinfodbkey"/>
             </column>
         </group>
-        <group name="local-login" title="local-login" icon="fa-sign-in" numcolumns="12">
+        <group name="local-login" title="local-login" icon="fas fa-sign-in-alt" numcolumns="12">
             <column name="allow-login-contacts" numcolumns="6" order="100">
                 <widget type="checkbox" fieldname="allowlogincontacts"/>
             </column>
@@ -53,7 +52,7 @@
                 <widget type="checkbox" fieldname="allownewregistrations"/>
             </column>
         </group>
-        <group name="facebook-login" title="facebook-login" icon="fa-facebook" numcolumns="12">
+        <group name="facebook-login" title="facebook-login" icon="fab fa-facebook" numcolumns="12">
             <column name="fb-app-id" title="app-id" numcolumns="6" order="100">
                 <widget type="text" fieldname="fbappid"/>
             </column>
@@ -61,7 +60,7 @@
                 <widget type="password" fieldname="fbappsecret"/>
             </column>
         </group>
-        <group name="google-login" title="google-login" icon="fa-google" numcolumns="12">
+        <group name="google-login" title="google-login" icon="fab fa-google" numcolumns="12">
             <column name="goole-app-id" title="app-id" numcolumns="6" order="100">
                 <widget type="text" fieldname="googleappid"/>
             </column>
@@ -69,20 +68,12 @@
                 <widget type="password" fieldname="googleappsecret"/>
             </column>
         </group>
-        <group name="twitter-login" title="twitter-login" icon="fa-twitter" numcolumns="12">
+        <group name="twitter-login" title="twitter-login" icon="fab fa-twitter" numcolumns="12">
             <column name="twitter-app-id" title="app-id" numcolumns="6" order="100">
                 <widget type="text" fieldname="twitterappid"/>
             </column>
             <column name="twitter-app-secret" title="app-secret" numcolumns="6" order="110">
                 <widget type="password" fieldname="twitterappsecret"/>
-            </column>
-        </group>
-        <group name="dialogflow" title="dialogflow" icon="fa-commenting-o" numcolumns="12">
-            <column name="df-cli-token" title="client-access-token" numcolumns="8" order="100">
-                <widget type="password" fieldname="dfclitoken"/>
-            </column>
-            <column name="df-max-anonymous" title="max-anonymous-comments" numcolumns="4" order="110">
-                <widget type="number" fieldname="dfmaxanonymous"/>
             </column>
         </group>
     </columns>

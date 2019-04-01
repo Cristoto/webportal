@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
+<?php
+/**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -15,20 +15,21 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
- * @author Carlos García Gómez <carlos@facturascripts.com>  
--->
+ */
+namespace FacturaScripts\Plugins\webportal\Lib\WebPortal\Widget;
 
-<view>
-    <columns>
-        <column name="code" order="100">
-            <widget type="text" fieldname="idcluster" onclick="EditWebCluster" />
-        </column>
-        <column name="title" order="120">
-            <widget type="text" fieldname="title" />
-        </column>
-        <column name="description" order="125">
-            <widget type="text" fieldname="description" />
-        </column>
-    </columns>
-</view>
+use FacturaScripts\Core\Lib\Widget\RowStatus as ParentClass;
+
+/**
+ * Description of RowStatus
+ *
+ * @author Carlos García Gómez
+ */
+class RowStatus extends ParentClass
+{
+
+    public function trClass($model, $classPrefix = 'bg-')
+    {
+        return '';
+    }
+}

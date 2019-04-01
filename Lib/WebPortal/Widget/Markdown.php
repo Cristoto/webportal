@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
+<?php
+/**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -15,19 +15,34 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+namespace FacturaScripts\Plugins\webportal\Lib\WebPortal\Widget;
+
+use FacturaScripts\Core\Base\Utils;
+use Parsedown;
+
+/**
+ * Description of Markdown
  *
  * @author Carlos García Gómez <carlos@facturascripts.com>
--->
+ */
+class Markdown
+{
 
-<view>
-    <columns>
-        <group name="data" numcolumns="12">
-            <column name="code" order="100">
-                <widget type="text" fieldname="idchat" required="true" readonly="true" />
-            </column>
-            <column name="date" order="120">
-                <widget type="date" fieldname="creationtime" readonly="true" />
-            </column>
-        </group>
-    </columns>
-</view>
+    /**
+     * 
+     * @param string $markdown
+     *
+     * @return string
+     */
+    public static function render(string $markdown)
+    {
+        $parser = new Parsedown();
+        $html = $parser->text(Utils::fixHtml($markdown));
+
+        /// some html fixes
+        return str_replace(
+            ['<p>', '<pre>', '<img '], ['<p class="text-justify">', '<pre class="code">', '<img class="img-responsive" '], $html
+        );
+    }
+}

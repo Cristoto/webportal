@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of webportal plugin for FacturaScripts.
- * Copyright (C) 2018 Carlos Garcia Gomez  <carlos@facturascripts.com>
+ * Copyright (C) 2018-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -18,6 +18,7 @@
  */
 namespace FacturaScripts\Plugins\webportal\Controller;
 
+use FacturaScripts\Core\App\AppSettings;
 use FacturaScripts\Core\Base\Controller;
 use FacturaScripts\Plugins\webportal\Model\WebPage;
 
@@ -69,20 +70,42 @@ class Sitemap extends Controller
     }
 
     /**
+     * Returns a valid sitemap item.
+     *
+     * @param string $loc
+     * @param int    $lastmod
+     * @param string $changefreq
+     * @param float  $priority
+     * 
+     * @return array
+     */
+    protected function createItem(string $loc, int $lastmod, string $changefreq = 'weekly', float $priority = 0.5): array
+    {
+        return [
+            'loc' => $loc,
+            'lastmod' => date('Y-m-d', $lastmod),
+            'changefreq' => $changefreq,
+            'priority' => $priority
+        ];
+    }
+
+    /**
      * Generate sitemap.
      */
     private function generateSitemap()
     {
         $this->setTemplate(false);
         $this->response->headers->set('Content-type', 'text/xml');
-        $xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        $domain = AppSettings::get('webportal', 'url', '');
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         foreach ($this->getSitemapItems() as $item) {
-            $xml .= '<url>
-            <loc>' . $item['loc'] . '</loc>
-            <lastmod>' . $item['lastmod'] . '</lastmod>
-            <changefreq>' . $item['changefreq'] . '</changefreq>
-            <priority>' . $item['priority'] . '</priority>
-         </url>';
+            $xml .= '<url><loc>' . $domain . $item['loc'] . '</loc>'
+                . '<lastmod>' . $item['lastmod'] . '</lastmod>'
+                . '<changefreq>' . $item['changefreq'] . '</changefreq>'
+                . '<priority>' . $item['priority'] . '</priority>'
+                . '</url>' . "\n";
         }
         $xml .= '</urlset>';
 
@@ -94,22 +117,16 @@ class Sitemap extends Controller
      *
      * @return array
      */
-    private function getSitemapItems()
+    protected function getSitemapItems(): array
     {
         $items = [];
-
         $webpageModel = new WebPage();
         foreach ($webpageModel->all([], [], 0, 0) as $wpage) {
-            if ($wpage->noindex) {
+            if ($wpage->noindex || substr($wpage->permalink, -1) === '*') {
                 continue;
             }
 
-            $items[] = [
-                'loc' => $wpage->permalink,
-                'lastmod' => date('Y-m-d', strtotime($wpage->lastmod)),
-                'changefreq' => 'always',
-                'priority' => 0.7
-            ];
+            $items[] = $this->createItem($wpage->url('public'), strtotime($wpage->lastmod), 'weekly', 0.8);
         }
 
         return $items;

@@ -18,7 +18,10 @@
  */
 namespace FacturaScripts\Plugins\webportal\Lib\WebPortal;
 
-use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
+use FacturaScripts\Core\Model\CodeModel;
+use FacturaScripts\Core\Lib\AssetManager;
+use FacturaScripts\Core\Lib\Widget\VisualItem;
+use FacturaScripts\Plugins\webportal\Lib\WebPortal\Widget\WidgetAutocomplete;
 
 /**
  * Description of SectionController
@@ -28,11 +31,19 @@ use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
 abstract class SectionController extends PortalController
 {
 
+    const MODEL_NAMESPACE = '\\FacturaScripts\\Dinamic\\Model\\';
+
     /**
      *
      * @var string
      */
     public $active = '';
+
+    /**
+     *
+     * @var CodeModel
+     */
+    protected $codeModel;
 
     /**
      *
@@ -44,24 +55,43 @@ abstract class SectionController extends PortalController
      *
      * @var array
      */
+    public $navigationLinks = [];
+
+    /**
+     *
+     * @var ListSection[]
+     */
     public $sections = [];
 
     abstract protected function createSections();
 
-    abstract protected function loadData(string $sectionName);
+    public function __construct(&$cache, &$i18n, &$miniLog, $className, $uri = '')
+    {
+        parent::__construct($cache, $i18n, $miniLog, $className, $uri);
+        AssetManager::add('css', FS_ROUTE . '/node_modules/jquery-ui-dist/jquery-ui.min.css');
+        AssetManager::add('js', FS_ROUTE . '/node_modules/jquery/dist/jquery.min.js');
+        AssetManager::add('js', FS_ROUTE . '/node_modules/jquery-ui-dist/jquery-ui.min.js');
+        $this->codeModel = new CodeModel();
+    }
 
-    public function getCurrentSection(): array
+    /**
+     * 
+     * @return ListSection
+     */
+    public function getCurrentSection()
     {
         return $this->sections[$this->current];
     }
 
+    /**
+     * 
+     * @return array
+     */
     public function getSectionGroups()
     {
         $group = [];
-        foreach ($this->sections as $section) {
-            if (!$section['fixed']) {
-                $group[$section['group']][] = $section;
-            }
+        foreach ($this->sections as $name => $section) {
+            $group[$section->group][$name] = $section;
         }
 
         return $group;
@@ -79,128 +109,212 @@ abstract class SectionController extends PortalController
         $this->commonCore();
     }
 
-    public function setCurrentSection(string $sectionName)
+    /**
+     * 
+     * @param string $sectionName
+     */
+    public function setCurrentSection($sectionName)
     {
         $this->current = $sectionName;
     }
 
-    protected function addButton(string $sectionName, string $link, string $label, string $icon)
+    /**
+     * 
+     * @param string $sectionName
+     * @param array  $btnArray
+     */
+    protected function addButton($sectionName, $btnArray)
     {
-        $this->sections[$sectionName]['buttons'][] = [
-            'icon' => $icon,
-            'label' => $this->i18n->trans($label),
-            'link' => $link
-        ];
-    }
-
-    protected function addListSection(string $sectionName, string $modelName, string $templateName, string $label, string $icon = 'fa-file-o', string $group = ''): bool
-    {
-        $modelClass = '\FacturaScripts\Dinamic\Model\\' . $modelName;
-        if (!class_exists($modelClass)) {
-            $this->miniLog->alert($modelClass . ' not found.');
-            return false;
-        }
-
-        $newSection = [
-            'icon' => $icon,
-            'group' => $group,
-            'label' => $this->i18n->trans($label),
-            'model' => new $modelClass(),
-            'template' => $templateName,
-        ];
-        return $this->addSection($sectionName, $newSection);
-    }
-
-    protected function addOrderOption(string $sectionName, string $field, string $label, int $selection = 0)
-    {
-        $this->sections[$sectionName]['orderOptions'][] = [
-            'field' => $field,
-            'label' => $this->i18n->trans($label),
-            'order' => 'ASC',
-            'selected' => (1 == $selection),
-        ];
-
-        $this->sections[$sectionName]['orderOptions'][] = [
-            'field' => $field,
-            'label' => $this->i18n->trans($label),
-            'order' => 'DESC',
-            'selected' => (2 == $selection),
-        ];
-
-        switch ($selection) {
-            case 1:
-                $this->sections[$sectionName]['order'] = [$field => 'ASC'];
-                break;
-
-            case 2:
-                $this->sections[$sectionName]['order'] = [$field => 'DESC'];
-                break;
-        }
-
-        $order = $this->request->get('order', '');
-        if ($sectionName === $this->active && '' !== $order) {
-            foreach ($this->sections[$sectionName]['orderOptions'] as $key => $option) {
-                if ($order !== $option['field'] . ' ' . $option['order']) {
-                    $this->sections[$sectionName]['orderOptions'][$key]['selected'] = false;
-                    continue;
-                }
-
-                $this->sections[$sectionName]['order'] = [$option['field'] => $option['order']];
-                $this->sections[$sectionName]['orderOptions'][$key]['selected'] = true;
-            }
+        $row = $this->sections[$sectionName]->getRow('actions');
+        if ($row) {
+            $row->addButton($btnArray);
         }
     }
 
-    protected function addSearchOptions(string $sectionName, array $fields)
+    /**
+     * Add an autocomplete type filter to the ListSection.
+     *
+     * @param string $sectionName
+     * @param string $key        (Filter identifier)
+     * @param string $label      (Human reader description)
+     * @param string $field      (Field of the model to apply filter)
+     * @param string $table      (Table to search)
+     * @param string $fieldcode  (Primary column of the table to search and match)
+     * @param string $fieldtitle (Column to show name or description)
+     * @param array  $where      (Extra where conditions)
+     */
+    protected function addFilterAutocomplete($sectionName, $key, $label, $field, $table, $fieldcode = '', $fieldtitle = '', $where = [])
     {
-        $this->sections[$sectionName]['searchOptions'] = $fields;
+        $filter = new ListFilter\AutocompleteFilter($key, $field, $label, $table, $fieldcode, $fieldtitle, $where);
+        $this->sections[$sectionName]->filters[$key] = $filter;
     }
 
-    protected function addSection(string $sectionName, array $params): bool
+    /**
+     * Adds a boolean condition type filter to the ListSection.
+     *
+     * @param string $sectionName
+     * @param string $key        (Filter identifier)
+     * @param string $label      (Human reader description)
+     * @param string $field      (Field of the model to apply filter)
+     * @param string $operation  (operation to perform with match value)
+     * @param mixed  $matchValue (Value to match)
+     * @param DataBaseWhere[] $default (where to apply when filter is empty)
+     */
+    protected function addFilterCheckbox($sectionName, $key, $label = '', $field = '', $operation = '=', $matchValue = true, $default = [])
     {
-        $fixed = isset($params['fixed']) ? $params['fixed'] : false;
-        if ('' === $this->active && !$fixed) {
-            $this->active = $sectionName;
-            $this->current = $sectionName;
+        $filter = new ListFilter\CheckboxFilter($key, $field, $label, $operation, $matchValue, $default);
+        $this->sections[$sectionName]->filters[$key] = $filter;
+    }
+
+    /**
+     * Adds a date type filter to the ListSection.
+     *
+     * @param string $sectionName
+     * @param string $key       (Filter identifier)
+     * @param string $label     (Human reader description)
+     * @param string $field     (Field of the table to apply filter)
+     * @param string $operation (Operation to perform)
+     */
+    protected function addFilterDatePicker($sectionName, $key, $label = '', $field = '', $operation = '>=')
+    {
+        $filter = new ListFilter\DateFilter($key, $field, $label, $operation);
+        $this->sections[$sectionName]->filters[$key] = $filter;
+    }
+
+    /**
+     * Add a select type filter to a ListSection.
+     *
+     * @param string $sectionName
+     * @param string $key       (Filter identifier)
+     * @param string $label     (Human reader description)
+     * @param string $field     (Field of the table to apply filter)
+     * @param array  $values    (Values to show)
+     */
+    protected function addFilterSelect($sectionName, $key, $label, $field, $values = [])
+    {
+        $filter = new ListFilter\SelectFilter($key, $field, $label, $values);
+        $this->sections[$sectionName]->filters[$key] = $filter;
+    }
+
+    /**
+     * Adds a HTML type section to the controller.
+     *
+     * @param string $sectionName
+     * @param string $title
+     * @param string $fileName
+     * @param string $modelName
+     * @param string $icon
+     * @param string $group
+     */
+    protected function addHtmlSection($sectionName, $title, $fileName = 'Section/WebPage', $modelName = 'WebPage', $icon = 'fab fa-html5', $group = '')
+    {
+        $newSection = new HtmlSection($sectionName, $title, self::MODEL_NAMESPACE . $modelName, $fileName, $icon, $group);
+        $this->addSection($sectionName, $newSection);
+    }
+
+    /**
+     * 
+     * @param string $sectionName
+     * @param string $modelName
+     * @param string $label
+     * @param string $icon
+     * @param string $group
+     */
+    protected function addListSection($sectionName, $modelName, $label, $icon = 'fas fa-file', $group = '')
+    {
+        $newSection = new ListSection($sectionName, $label, self::MODEL_NAMESPACE . $modelName, $icon, $group);
+        $this->addSection($sectionName, $newSection);
+    }
+
+    /**
+     * 
+     * @param string $link
+     * @param string $title
+     */
+    protected function addNavigationLink($link, $title)
+    {
+        $this->navigationLinks[] = ['title' => $title, 'url' => $link];
+    }
+
+    /**
+     * 
+     * @param string $sectionName
+     * @param array  $fields
+     * @param string $label
+     * @param int    $selection
+     */
+    protected function addOrderOption($sectionName, $fields, $label, $selection = 0)
+    {
+        $this->sections[$sectionName]->addOrderBy($fields, $label, $selection);
+    }
+
+    /**
+     * 
+     * @param string $sectionName
+     * @param array  $fields
+     */
+    protected function addSearchOptions($sectionName, $fields)
+    {
+        $this->sections[$sectionName]->searchFields = $fields;
+    }
+
+    /**
+     * 
+     * @param string      $sectionName
+     * @param ListSection $newSection
+     */
+    protected function addSection($sectionName, $newSection)
+    {
+        if ($sectionName !== $newSection->getViewName()) {
+            $this->miniLog->error('$sectionName must be equals to $view->name');
+            return;
         }
 
-        $newSection = [
-            'icon' => '',
-            'buttons' => [],
-            'count' => 0,
-            'cursor' => [],
-            'fixed' => $fixed,
-            'group' => '',
-            'label' => '',
-            'model' => null,
-            'name' => $sectionName,
-            'offset' => ($this->active == $sectionName) ? $this->request->get('offset', 0) : 0,
-            'order' => [],
-            'orderOptions' => [],
-            'pages' => [],
-            'query' => ($this->active == $sectionName) ? $this->request->get('query', '') : '',
-            'searchOptions' => [],
-            'template' => 'Section/WebPage.html.twig',
-            'where' => [],
-        ];
-
-        foreach ($params as $key => $value) {
-            $newSection[$key] = ($key === 'template') ? $value . '.html.twig' : $value;
-        }
-
+        $newSection->loadPageOptions();
         $this->sections[$sectionName] = $newSection;
-        return true;
+        if ('' === $this->active) {
+            $this->active = $sectionName;
+        }
+    }
+
+    /**
+     * Run the autocomplete action.
+     * Returns a JSON string for the searched values.
+     *
+     * @return string
+     */
+    protected function autocompleteAction()
+    {
+        $data = [];
+        foreach (['field', 'source', 'fieldcode', 'fieldtitle', 'term', 'formname'] as $value) {
+            $data[$value] = $this->request->get($value);
+        }
+        if ($data['source'] == '') {
+            return $this->getAutocompleteValues($data['formname'], $data['field']);
+        }
+
+        /// is this search allowed?
+        if (!WidgetAutocomplete::allowed($data['source'], $data['fieldcode'], $data['fieldtitle'])) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($this->codeModel->search($data['source'], $data['fieldcode'], $data['fieldtitle'], $data['term']) as $value) {
+            $results[] = ['key' => $value->code, 'value' => $value->description];
+        }
+        return $results;
     }
 
     protected function commonCore()
     {
         $this->setTemplate('Master/SectionController');
+        $this->setLevel();
 
-        $this->active = $this->request->get('active', '');
+        $this->active = $this->request->request->get('activetab', $this->request->query->get('activetab', ''));
         $this->createSections();
 
         // Get any operations that have to be performed
-        $action = $this->request->get('action', '');
+        $action = $this->request->request->get('action', $this->request->query->get('action', ''));
 
         // Run operations on the data before reading it
         if (!$this->execPreviousAction($action)) {
@@ -209,14 +323,13 @@ abstract class SectionController extends PortalController
 
         // Loads data for each section
         foreach (array_keys($this->sections) as $key) {
-            $this->loadData($key);
-        }
-
-        // don't combine with previous foreach
-        foreach ($this->sections as $key => $section) {
-            if ($section['count'] === 0) {
-                $this->sections[$key]['count'] = count($section['cursor']);
+            if ($this->active == $key) {
+                $this->sections[$key]->processFormData($this->request, 'load');
+            } else {
+                $this->sections[$key]->processFormData($this->request, 'preload');
             }
+
+            $this->loadData($key);
         }
 
         // General operations with the loaded data
@@ -230,70 +343,86 @@ abstract class SectionController extends PortalController
      */
     protected function execAfterAction(string $action)
     {
-        
+        ;
     }
 
     /**
      * Run operations on the data before reading it. Returns false to stop process.
      *
      * @param string $action
-     * 
-     * @return boolean
+     *
+     * @return bool
      */
     protected function execPreviousAction(string $action)
     {
+        switch ($action) {
+            case 'autocomplete':
+                $this->setTemplate(false);
+                $results = $this->autocompleteAction();
+                $this->response->setContent(json_encode($results));
+                return false;
+        }
+
         return true;
     }
 
-    protected function getPagination(array $section): array
+    /**
+     * Changes the template to show the first section as fixed.
+     */
+    protected function fixedSection()
     {
-        $pages = [];
-        $i = $num = 0;
-        $current = 1;
-
-        /// añadimos todas la página
-        while ($num < $section['count']) {
-            $pages[$i] = [
-                'offset' => $i * FS_ITEM_LIMIT,
-                'num' => $i + 1,
-                'current' => ($num == $section['offset'])
-            ];
-            if ($num == $section['offset']) {
-                $current = $i;
-            }
-            $i++;
-            $num += FS_ITEM_LIMIT;
-        }
-
-        /// ahora descartamos
-        foreach (array_keys($pages) as $j) {
-            $enmedio = intval($i / 2);
-            /**
-             * descartamos todo excepto la primera, la última, la de enmedio,
-             * la actual, las 5 anteriores y las 5 siguientes
-             */
-            if (($j > 1 && $j < $current - 5 && $j != $enmedio) || ( $j > $current + 5 && $j < $i - 1 && $j != $enmedio)) {
-                unset($pages[$j]);
-            }
-        }
-
-        return (count($pages) > 1) ? $pages : [];
+        $this->setTemplate('Master/SectionControllerFixed');
     }
 
+    /**
+     * Return values from Widget Values for autocomplete action
+     *
+     * @param string $sectionName
+     * @param string $fieldName
+     *
+     * @return array
+     */
+    protected function getAutocompleteValues(string $sectionName, string $fieldName): array
+    {
+        $result = [];
+        $column = $this->sections[$sectionName]->columnForField($fieldName);
+        if (!empty($column)) {
+            foreach ($column->widget->values as $value) {
+                $result[] = ['key' => $this->i18n->trans($value['title']), 'value' => $value['value']];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Load section data procedure
+     *
+     * @param string $sectionName
+     */
+    protected function loadData(string $sectionName)
+    {
+        $this->sections[$sectionName]->loadData();
+    }
+
+    /**
+     * 
+     * @param string $sectionName
+     * @param array  $where
+     */
     protected function loadListSection(string $sectionName, array $where = [])
     {
-        $section = $this->sections[$sectionName];
+        $this->miniLog->alert('loadListSection($sectionName, $where) is deprecated. Please, '
+            . 'use $this->sections[$sectionName]->loadData(\'\', $where)');
+        $this->sections[$sectionName]->loadData('', $where);
+    }
 
-        $finalWhere = $where;
-        if ($sectionName === $this->active && '' !== $section['query']) {
-            $fields = implode('|', $section['searchOptions']);
-            $finalWhere[] = new DataBaseWhere($fields, $section['query'], 'LIKE');
+    /**
+     * Sets contact security level to use in render.
+     */
+    protected function setLevel()
+    {
+        if ($this->contact) {
+            VisualItem::setLevel($this->contact->level);
         }
-
-        $this->sections[$sectionName]['count'] = $section['model']->count($finalWhere);
-        $this->sections[$sectionName]['cursor'] = $section['model']->all($finalWhere, $section['order'], $section['offset']);
-        $this->sections[$sectionName]['where'] = $where;
-
-        $this->sections[$sectionName]['pages'] = $this->getPagination($this->sections[$sectionName]);
     }
 }

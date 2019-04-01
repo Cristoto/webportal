@@ -1,0 +1,117 @@
+{% import _self as macros %}
+{% set section = fsc.getCurrentSection() %}
+
+{# -- List form -- #}
+<form id="secForm{{ section.getViewName() }}" method="post">
+    <input type="hidden" name="activetab" value="{{ section.getViewName() }}"/>
+    <input type="hidden" name="offset" value="0"/>
+    <div class="columns">
+        <div class="column mb-2">
+            {# -- Row actions -- #}
+            {% set row = section.getRow('actions') %}
+            {{ row.render(true) | raw }}
+        </div>
+        <div class="column text-right mb-2">
+            {% if section.filters is not empty %}
+                <a href="#" class="btn" onclick='$("#form{{ section.getViewName() }}Filters").toggle();'>
+                    <i class="fas fa-filter fa-fw"></i> {{ i18n.trans('filters') }}
+                </a>
+            {% endif %}
+        </div>
+        <div class="column col-3 col-sm-12 mb-2">
+            {{ macros.sectionSearch(section, i18n) }}
+        </div>
+        <div class="column col-3 col-sm-12 mb-2">
+            {{ macros.sectionOrder(section) }}
+        </div>
+    </div>
+    {# -- Filters -- #}
+    {% set divFiltersStyle = section.showFilters ? '' : 'display: none;' %}
+    <div id="form{{ section.getViewName() }}Filters" class="columns" style="{{ divFiltersStyle }}">
+        {% for filterName, filter in section.filters %}
+            {{ filter.render() | raw }}
+        {% endfor %}
+    </div>
+</form>
+
+{# -- Body section -- #}
+{% block sectionBody %}
+    <div class="custom-scroll">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    {% for column in section.getColumns() %}
+                        {{ column.tableHeader() | raw }}
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% set rowStatus = section.getRow('status') %}
+                {% for model in section.cursor %}
+                    {% set trClass = rowStatus.trClass(model) %}
+                    <tr class="clickableRow c-hand {{ trClass }}" data-href="{{ asset(model.url('public')) }}">
+                        {% for column in section.getColumns() %}
+                            {{ column.tableCell(model) | raw }}
+                        {% endfor %}
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td class="bg-warning" colspan="{{ 1 + section.getColumns() | length }}">{{ i18n.trans('no-data') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{# -- Paginacion -- #}
+<div class="custom-scroll">
+    {{ macros.sectionPagination(section) }}
+</div>
+
+{# -- Macros -- #}
+{% macro sectionOrder(section) %}
+    {% if section.orderOptions | length > 0 %}
+        <div class="input-group">
+            <span class="input-group-addon">
+                <i class="fas fa-sort fa-fw" aria-hidden="true"></i>
+            </span>
+            <select name="order" class="form-select" onchange="this.form.submit();">
+                {% for key, option in section.orderOptions %}
+                    {% if section.orderKey == key %}
+                        <option value="{{ key }}" selected="">{{ option.label }} {{ option.type }}</option>
+                    {% else %}
+                        <option value="{{ key }}">{{ option.label }} {{ option.type }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro sectionPagination(section) %}
+    <ul class="pagination">
+        {% for page in section.getPagination() %}
+            {% if page.active %}
+                <li class="page-item active">
+                    <a href="#" onclick="return showSectionPage('{{ section.getViewName() }}', '{{ page.offset }}');">{{ page.num }}</a>
+                </li>
+            {% else %}
+                <li class="page-item">
+                    <a href="#" onclick="return showSectionPage('{{ section.getViewName() }}', '{{ page.offset }}');">{{ page.num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endmacro %}
+
+{% macro sectionSearch(section, i18n) %}
+    {% if section.searchFields | length > 0 %}
+        <div class="input-group">
+            <input type="text" name="query" value="{{ section.query }}" class="form-input" placeholder="{{ i18n.trans('search') }}" autocomplete="off"/>
+            <button class="btn btn-primary input-group-btn">
+                <i class="fas fa-search fa-fw" aria-hidden="true"></i>
+            </button>
+        </div>
+    {% endif %}
+{% endmacro %}

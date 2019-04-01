@@ -1,0 +1,105 @@
+<div class="container">
+    <div class="columns">
+        <div class="column col-2 col-xs-12 text-right">
+            <span class="label">{{ fsc.contact.alias() }}</span>
+            <br/>
+            <img src="{{ fsc.contact.gravatar() }}" alt="{{ fsc.contact.fullName() }}" class="custom-img-responsive"/>
+            <br/>
+            <a href="https://es.gravatar.com/" target="_blank" rel="nofollow">
+                {{ i18n.trans('edit') }}
+            </a>
+        </div>
+        <div class="column">
+            <h1 class="h3">{{ fsc.contact.email }}</h1>
+            <form method="post">
+                <input type="hidden" name="action" value="edit"/>
+                <div class="columns">
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('name') }}</label>
+                            <input class="form-input" type="text" name="nombre" value="{{ fsc.contact.nombre }}" autocomplete="off" required=""/>
+                        </div>
+                    </div>
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('surname') }}</label>
+                            <input class="form-input" type="text" name="apellidos" value="{{ fsc.contact.apellidos }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('address') }}</label>
+                            <input class="form-input" type="text" name="direccion" value="{{ fsc.contact.direccion }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('city') }}</label>
+                            <input class="form-input" type="text" name="ciudad" value="{{ fsc.contact.ciudad }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column col-4">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('province') }}</label>
+                            <input class="form-input" type="text" name="provincia" value="{{ fsc.contact.provincia }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column col-4">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('country') }}</label>
+                            <select class="form-select" name="codpais">
+                                {% for pais in fsc.getCountries() %} 
+                                    {% if pais.codpais == fsc.contact.codpais %}
+                                        <option value="{{pais.codpais}}" selected="">{{pais.nombre}}</option>
+                                    {% else %}
+                                        <option value="{{pais.codpais}}">{{pais.nombre}}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('postalmail') }}</label>
+                            <input class="form-input" type="text" name="apartado" value="{{ fsc.contact.apartado }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('zip-code') }}</label>
+                            <input class="form-input" type="number" name="codpostal" value="{{ fsc.contact.codpostal }}" autocomplete="off"/>
+                        </div>
+                    </div>
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('new-password') }}</label>
+                            <div class="input-group">
+                                <span class="input-group-addon">
+                                    <i class="fas fa-key fa-fw"></i>
+                                </span>
+                                <input class="form-input" type="password" name="password" autocomplete="off"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column col-6">
+                        <div class="form-group">
+                            <label class="form-label">{{ i18n.trans('repeat-new-password') }}</label>
+                            <div class="input-group">
+                                <span class="input-group-addon">
+                                    <i class="fas fa-key fa-fw"></i>
+                                </span>
+                                <input class="form-input" type="password" name="re-password" autocomplete="off"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <br/>
+                <button type="submit" class="btn btn-primary">
+                    {{ i18n.trans('save') }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+<br/>
+<br/>
